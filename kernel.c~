@@ -1,0 +1,17 @@
+int main (int argc, char *argv[]) {
+char white;
+char = 0x41;
+putInMemory(0xB000, 0x8140, 'H');
+putInMemory(0xB000, 0x8141, white);
+putInMemory(0xB000, 0x8142, 'E');
+putInMemory(0xB000, 0x8143, white);
+putInMemory(0xB000, 0x8144, 'L');
+putInMemory(0xB000, 0x8145, white);
+putInMemory(0xB000, 0x8146, 'L');
+putInMemory(0xB000, 0x8147, white);
+putInMemory(0xB000, 0x8148, 'O');
+putInMemory(0xB000, 0x8149, white);
+While (true){
+}
+return 0
+}
