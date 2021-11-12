@@ -12,6 +12,9 @@ int readFile(char *filename, char *buf);
 int executeProgram(char* name, int segment);
 void terminate();
 
+// P4 functions
+int writeSector(char *buffer, int sector);
+
 int handleInterrupt21(int ax, int bx, int cx, int dx);
 
 int main(void) {
@@ -50,9 +53,11 @@ int main(void) {
 	makeInterrupt21();
 	// read the file into buffer
 	interrupt(0x21, 0x03, "messag", buffer, 0);
+	writeSector(buffer, 2879);
+	
+/*
 	// print the file contents to the console
 	interrupt(0x21, 0x00, buffer, 0, 0);
-/*
 	interrupt(0x21, 0x04, "uprog1", 0x2000, 0);
 	interrupt(0x21, 0x00, "Done!\n\r", 0, 0);
 
@@ -287,6 +292,16 @@ int executeProgram(char* filename, int segment) {
 void terminate() {
 	resetSegments();
 	executeProgram("shell", 0x2000);
+}
+
+/** Read in the from buf and store in chosen sector. Return 1.
+*/
+int writeSector(char *buf, int absSector) {
+	int relSector = mod(absSector,18) + 1;
+	int head = mod(absSector / 18, 2);
+	int track = absSector / 36;
+	interrupt(0x13,0x03*256 + 1, buf, track*256 + relSector, head*256 + 0x00);
+	return 1;
 }
 
 /** Interrupt handler for interrupt 21.
