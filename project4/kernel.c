@@ -14,6 +14,8 @@ void terminate();
 
 // P4 functions
 int writeSector(char *buffer, int sector);
+int deleteFile(char *fname);
+
 
 int handleInterrupt21(int ax, int bx, int cx, int dx);
 
@@ -52,19 +54,20 @@ int main(void) {
 	char buffer[13312]; // the maximum size of a file
 	makeInterrupt21();
 	// read the file into buffer
+	interrupt(0x21, 0x07, "messag", 0, 0);
 	interrupt(0x21, 0x03, "messag", buffer, 0);
 	writeSector(buffer, 2879);
-	
-/*
 	// print the file contents to the console
 	interrupt(0x21, 0x00, buffer, 0, 0);
+/*
+	
 	interrupt(0x21, 0x04, "uprog1", 0x2000, 0);
 	interrupt(0x21, 0x00, "Done!\n\r", 0, 0);
 
 	interrupt(0x21, 0x04, "uprog2", 0x2000, 0);
 	interrupt(0x21, 0x00, "Done!\n\r", 0, 0);
 */
-
+	
 	interrupt(0x21, 0x04, "shell", 0x2000, 0);
 
 
@@ -304,6 +307,75 @@ int writeSector(char *buf, int absSector) {
 	return 1;
 }
 
+/** Delete a file with a chosen name. Return 1 if deleted, -1 if not
+*/
+int deleteFile(char *fname){
+	char diskDirectory[512];
+	char diskMap[512];
+	int fileEntry = 0;
+	int filenameLocation = 0;
+	int filenameChars = 0;
+	int charMatch = 0;
+	int sectorsRead = -1;
+	// Null filename.
+	if (fname[0] == 0) {
+		return -1;
+	}
+
+	// Read in the disk directory to a buffer to analyze.
+	readSector(diskDirectory, 2);
+	readSector(diskMap, 1);
+
+	// Search for filenames in the disk directory. Only 16 files possible.
+	for (fileEntry = 0; fileEntry < 16; fileEntry++) {
+
+		// Each file entry is 32 bytes apart in the disk directory
+		filenameLocation = fileEntry * 32;
+
+		// Check the filename in the directory against the specified filename
+		for (filenameChars = 0; filenameChars < 6; filenameChars++) {
+			// Compare each character in the two filenames one at a time...
+			if (fname[filenameChars] == diskDirectory[filenameLocation + filenameChars]) {
+
+				// Some filenames may be <6 characters. If both filenames terminate prematurely
+				// with no differences, then it's a match. Terminate the loop.
+				if (fname[filenameChars] == 0) {
+					charMatch = 6;			// match found
+					filenameChars = 6;		// terminate inner loop
+				}
+				// Count the number of matches.
+				else {
+					charMatch++;
+				}
+			}
+			// Any mismatched character means this is not the right filename.
+			else {
+				charMatch = 0;				// match not found
+				filenameChars = 6;			// terminate inner loop
+			}
+		}
+
+		// filename matched! terminate outer loop
+		if (charMatch == 6) {
+			fileEntry = 16;
+		}
+	}
+
+	// If filename found
+	if (charMatch == 6) {
+		// Read in each sector of the file one at a time, put byte into provided buffer
+		for (sectorsRead = 0; diskDirectory[filenameLocation + 6 + sectorsRead] != 0 && sectorsRead < 26; sectorsRead++) {
+			diskMap[diskDirectory[filenameLocation + 6 + sectorsRead]] = 0x00;
+		}
+		diskDirectory[filenameLocation] = 0x00;
+		writeSector(diskMap, 1);
+		writeSector(diskDirectory, 2);
+		return 1;
+	}
+	return -1;
+}
+
+
 /** Interrupt handler for interrupt 21.
 */
 int handleInterrupt21(int ax, int bx, int cx, int dx) {
@@ -325,6 +397,9 @@ int handleInterrupt21(int ax, int bx, int cx, int dx) {
 	}
 	else if (ax == 0x05) {
 		terminate();
+	}
+	else if (ax = 0x07) {
+		returnValue = deleteFile((char*)bx);
 	}
 	return returnValue;
 }
