@@ -1,5 +1,6 @@
-// P3 kernel.c solution
-// Author: Brian Law
+// P4 kernel.c
+// Built on P3 kernel.c solution by Brian Law
+// Author: Evan
 
 int mod(int dividend, int divisor);
 int printString(char *str);
@@ -15,7 +16,7 @@ void terminate();
 // P4 functions
 int writeSector(char *buffer, int sector);
 int deleteFile(char *fname);
-
+int writeFile(char *fname, char *buffer, int sectors);
 
 int handleInterrupt21(int ax, int bx, int cx, int dx);
 
@@ -54,11 +55,11 @@ int main(void) {
 	char buffer[13312]; // the maximum size of a file
 	makeInterrupt21();
 	// read the file into buffer
-	interrupt(0x21, 0x07, "messag", 0, 0);
-	interrupt(0x21, 0x03, "messag", buffer, 0);
-	writeSector(buffer, 2879);
+	//interrupt(0x21, 0x07, "messag", 0, 0);
+	//interrupt(0x21, 0x03, "messag", buffer, 0);
+	//writeSector(buffer, 2879);
 	// print the file contents to the console
-	interrupt(0x21, 0x00, buffer, 0, 0);
+	//interrupt(0x21, 0x00, buffer, 0, 0);
 /*
 	
 	interrupt(0x21, 0x04, "uprog1", 0x2000, 0);
@@ -375,6 +376,156 @@ int deleteFile(char *fname){
 	return -1;
 }
 
+/** Write a file with fname from the buffer to the sectors
+ Return -1 if there is no disk directory entry available, -2 if insufficient sectors, else the number of sectors written
+*/
+int writeFile(char *fname, char *buffer, int sectors){
+	char diskDirectory[512];
+	char diskMap[512];
+	char writingSector[512];
+	int fileEntry = 0;
+	int filenameLocation = 0;
+	int filenameChars = 0;
+	int charMatch = 0;
+	int sectorsWritten = 0;
+	int writeDestination = -1;
+	int emptySector = -1;
+	int fill = 0;
+	int byteIterator = 0;
+	// Null filename.
+	if (fname[0] == 0) {
+		return -1;
+	}
+
+	// Read in the disk directory to a buffer to analyze.
+	readSector(diskDirectory, 2);
+	readSector(diskMap, 1);
+
+	// Search for filenames in the disk directory. Only 16 files possible.
+	for (fileEntry = 0; fileEntry < 16; fileEntry++) {
+
+		// Each file entry is 32 bytes apart in the disk directory
+		filenameLocation = fileEntry * 32;
+		if (diskDirectory[filenameLocation] == 0x00) {
+			writeDestination = filenameLocation;
+		}
+		// Check the filename in the directory against the specified filename
+		for (filenameChars = 0; filenameChars < 6; filenameChars++) {
+			// Compare each character in the two filenames one at a time...
+			if (fname[filenameChars] == diskDirectory[filenameLocation + filenameChars]) {
+
+				// Some filenames may be <6 characters. If both filenames terminate prematurely
+				// with no differences, then it's a match. Terminate the loop.
+				if (fname[filenameChars] == 0) {
+					charMatch = 6;			// match found
+					filenameChars = 6;		// terminate inner loop
+				}
+				// Count the number of matches.
+				else {
+					charMatch++;
+				}
+			}
+			// Any mismatched character means this is not the right filename.
+			else {
+				charMatch = 0;				// match not found
+				filenameChars = 6;			// terminate inner loop
+			}
+		}
+
+		// filename matched! terminate outer loop
+		if (charMatch == 6) {
+			fileEntry = 16;
+		}
+	}
+
+	// If filename found
+	if (charMatch == 6) {
+		deleteFile(fname);
+		writeDestination = filenameLocation;
+	}
+	// Catch if the directory is full
+	if (writeDestination == -1) {
+		return -1;
+	}
+	// Write the name of the file to the directory
+	for (sectorsWritten = 0; sectorsWritten < 6; sectorsWritten++) {
+		if (fname[sectorsWritten] == 0x00 || fill == 1) {
+			fill = 1;
+			diskDirectory[writeDestination + sectorsWritten] = 0x00;
+		} else {
+			diskDirectory[writeDestination + sectorsWritten] = fname[sectorsWritten];
+		}
+	}
+	// Write the file contents to the sectors
+	for (sectorsWritten = 0; sectorsWritten < sectors && sectorsWritten < 26; sectorsWritten++) {
+			
+			for (byteIterator = 0; byteIterator < 512; byteIterator++) {
+				if (diskMap[byteIterator] == 0x00) {
+					emptySector = byteIterator;
+					byteIterator = 512;
+				}
+			}
+			// If we cant find a viable sector
+			if (emptySector == -1)
+			{
+				return -2;
+			}
+			// Write the new sector to the directory
+			diskDirectory[writeDestination + sectorsWritten + 6] = emptySector;
+			for (byteIterator = 0; byteIterator < 512; byteIterator++) {
+				writingSector[byteIterator] = buffer[(sectorsWritten*512)+byteIterator];
+			}
+			// once the buffer has content we write it to the sector
+			writeSector(writingSector, emptySector);
+			// Update disk map!
+			diskMap[emptySector] = 0xFF;
+			emptySector = -1;
+		}
+		
+	writeSector(diskMap, 1);
+	writeSector(diskDirectory, 2);
+	return sectorsWritten;
+}
+
+/** Processing for DIR command in Shell 
+*/
+int directory(char *buf) {
+	char diskDirectory[512];
+	int fileEntry = 0;
+	int filenameLocation = 0;
+	int filenameChars = 0;
+	int iterator = 0;
+	readSector(diskDirectory, 2);
+	for (fileEntry = 0; fileEntry < 16; fileEntry++) {
+		// Each file entry is 32 bytes apart in the disk directory
+		filenameLocation = fileEntry * 32;
+		if (diskDirectory[filenameLocation] != 0x00) {
+			// Iterate through the filename
+			for (filenameChars = 0; filenameChars < 6; filenameChars++) {
+				// Add the names to the buffer
+				if (diskDirectory[filenameLocation + filenameChars] == 0x00) {
+					filenameChars = 6;
+					
+				} else {
+					buf[iterator] = diskDirectory[filenameLocation + filenameChars];
+					iterator++;
+				}
+			}
+			// If the name is finished then append newlines and returns
+			buf[iterator] = '\r';
+			iterator++;
+			buf[iterator] = '\n';
+			iterator++;
+		}
+	}
+	// 0 it out so we can run multiple times
+	while (iterator < 512) {
+		buf[iterator] = 0x00;
+		iterator++;
+	}
+	return 1;
+}
+
 
 /** Interrupt handler for interrupt 21.
 */
@@ -398,8 +549,14 @@ int handleInterrupt21(int ax, int bx, int cx, int dx) {
 	else if (ax == 0x05) {
 		terminate();
 	}
-	else if (ax = 0x07) {
+	else if (ax == 0x07) {
 		returnValue = deleteFile((char*)bx);
+	}
+	else if (ax == 0x08) {
+		returnValue = writeFile((char*)bx, (char*)cx, dx);
+	}
+	else if (ax == 0x09) {
+		returnValue = directory((char*)bx);
 	}
 	return returnValue;
 }

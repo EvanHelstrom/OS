@@ -1,5 +1,6 @@
-// P3 user library functions, for user programs on our operating system.
-//Author: Brian Law
+// P4 user library functions, for user programs on our operating system.
+// Build on P3 user library functions by Brian Law
+//Author: Evan Quist
 
 // Print out the c-string s to the console.
 int print(char* s) {
@@ -33,4 +34,24 @@ int executeProgram(char* filename, int segment) {
 // Terminate this program and return to shell.
 void terminateProgram() {
 	interrupt(0x21, 0x05, 0, 0, 0);
+}
+
+// delete a file from the directory by name
+// Will return -1 if file not found, 1 if it is deleted.
+int deleteFile(char* filename) {
+	return interrupt(0x21, 0x07, filename, 0, 0);
+}
+
+// Write a new file into the directory by name
+// fileBuffer should be size 13312 for maximum-size (26-sectors) files.
+// Sectors is the max number of sectors to write to
+// Will return -2 if sectors run out, -1 if no directory room, else the number of written sectors
+int writeFile(char* filename, char* fileBuffer, sectors) {
+	return interrupt(0x21, 0x08, filename, fileBuffer, sectors);
+}
+
+// Handle the dir command and get files in directory
+// fileBuffer will be a max of 512 bytes
+int directory(char* fileBuffer) {
+	return interrupt(0x21, 0x09, fileBuffer);
 }
