@@ -52,6 +52,7 @@ int writeFile(char* filename, char* fileBuffer, sectors) {
 
 // Handle the dir command and get files in directory
 // fileBuffer will be a max of 512 bytes
+// Returns 1
 int directory(char* fileBuffer) {
 	return interrupt(0x21, 0x09, fileBuffer);
 }

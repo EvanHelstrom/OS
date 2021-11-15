@@ -104,6 +104,7 @@ void main() {
 				// Copy the file
 				else {
 					status = writeFile(command+iterator+6, fileBuffer, status);
+					// Catch errors from Write
 					if (status == -1) {
 						print("Error: Disk directory is full\n\r");
 					}
@@ -113,7 +114,6 @@ void main() {
 				}
 			}
 			// If program errors, print out error message
-			
 			if (status == -3) {
 				print("Error: File cannot be null\n\r");
 			}
@@ -123,6 +123,7 @@ void main() {
 		else if (command[0] == 'd' && command[1] == 'i' && command[2] == 'r' && (command[3] == ' ' || command[3] == 0)) {
 			// Try to run dir
 			status = directory(fileBuffer);
+			// Output the result
 			print(fileBuffer);
 		}
 		// Invalid command.
