@@ -10,11 +10,13 @@ dd if=bootload of=floppya.img bs=512 count=1 conv=notrunc seek=0
 dd if=map.img of=floppya.img bs=512 count=1 seek=1 conv=notrunc
 dd if=dir.img of=floppya.img bs=512 count=1 seek=2 conv=notrunc
 
+# proc.c compile and link
+bcc -ansi -c -o proc.o proc.c
 
 # kernel load
 bcc -ansi -c -o kernel.o kernel.c
 as86 kernel.asm -o kernel_asm.o
-ld86 -o kernel -d kernel.o kernel_asm.o
+ld86 -o kernel -d kernel.o kernel_asm.o proc.o 
 dd if=kernel of=floppya.img bs=512 conv=notrunc seek=3
 
 # loading message.txt to the disk
@@ -38,5 +40,6 @@ ld86 -o uprog1 -d uprog1.o lib.o userlib.o
 bcc -ansi -c -o uprog2.o uprog2.c
 ld86 -o uprog2 -d uprog2.o lib.o userlib.o
 ./loadFile uprog2
+
 
 

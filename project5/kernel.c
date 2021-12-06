@@ -1,6 +1,10 @@
 // Project5, Based on Project4 Solutions by Brian Law
 // Author: Evan Quist
 
+
+#define MAIN
+#include "proc.h"
+
 int mod(int dividend, int divisor);
 int printString(char *str);
 int readChar();
@@ -10,7 +14,6 @@ int handleInterrupt21(int ax, int bx, int cx, int dx);
 
 // P3 functions
 int readFile(char *filename, char *buf);
-int executeProgram(char* name, int segment);
 void terminate();
 
 // P4 functions
@@ -20,10 +23,13 @@ int writeFile(char *fname, char *buffer, int sectors);
 
 // P5 functions
 void handleTimerInterrupt(int segment, int stackPointer);
+int executeProgram(char *fname);
+
 
 int main(void) {
   	makeInterrupt21();
 	makeTimerInterrupt();
+	initializeProcStructures();
 /*
 	// P2 testing
 	char line[80]; // A buffer of size 80
@@ -226,16 +232,26 @@ int readFile(char *filename, char *buf) {
 
 // Execute the program with the filename name by loading it into the specified segment of memory.
 // Return -1 if program not found, -2 if segment invalid.
-int executeProgram(char* filename, int segment) {
+int executeProgram(char* filename) {
 	char fileBuffer[13312];
 	int sectorsRead = 0;
 	int sectorsLoaded = 0;
 	int bytesLoaded = 0;
-
-	// Invalid segment numbers return -2
-	if (segment == 0x0000 || segment == 0x1000 || segment >= 0xA000 || mod(segment, 0x1000) != 0) {
+	int segment = 0;
+	int i = 0;
+	struct PCB *pcbPointer = getFreePCB();
+	int freeSegment = getFreeMemorySegment();
+	if (freeSegment == -1) {
 		return -2;
 	}
+	segment = 2000 + (freeSegment * 1000);
+	pcbPointer->stackPointer = 0xFF00;
+	pcbPointer->segment = segment;
+	for (i=0; i<6; i++) {
+		pcbPointer->name[i] = filename[i];
+	}
+	
+	addToReady(pcbPointer);
 	
 	// Read the program (file) to be executed
 	sectorsRead = readFile(filename, fileBuffer);
@@ -253,7 +269,8 @@ int executeProgram(char* filename, int segment) {
 	}
 
 	// MOVE ZIG
-	launchProgram(segment);
+	initializeProgram(segment);
+	return 1;
 }
 
 // Terminate a program and execute the shell again.
@@ -500,8 +517,13 @@ void directoryContents(char* contentsBuffer) {
 /** Handle the interrupt timer
 */
 void handleTimerInterrupt(int segment, int stackPointer) {
-	interrupt(0x21, 0x00, "Tic\n\r", 0, 0);
-	returnFromTimer(segment, stackPointer);
+	running->segment = segment;
+	running->stackPointer = stackPointer;
+	running->state = 2;
+	addToReady(running);
+	running = removeFromReady();
+	running->state = 1;
+	returnFromTimer(running->segment, running->stackPointer);
 }
 /** Interrupt handler for interrupt 21.
 */
@@ -520,7 +542,7 @@ int handleInterrupt21(int ax, int bx, int cx, int dx) {
 		returnValue = readFile(bx, cx);
 	}
 	else if (ax == 0x04) {
-		returnValue = executeProgram(bx, cx);
+		returnValue = executeProgram(bx);
 	}
 	else if (ax == 0x05) {
 		terminate();
