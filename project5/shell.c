@@ -132,6 +132,27 @@ void main() {
 				print(fileBuffer);
 				print("\n\r");
 			}
+			else if (command[0] == 'p' && command[1] == 's' && command[2] == '0') {
+				showProcesses();
+				print("\n\r");
+			}
+			else if (command[0] == 'k' && command[1] == 'i' && command[2] == 'l' && command[3] == 'l' 
+			     && (command[4] == ' ' || command[4] == 0)) {
+
+				// No seg specified.
+				if (command[5] == 0) {
+					print("Error: segment invalid\n\r");
+				}
+				else {
+					status = killProcess(command[5]);
+					if (status == -1) {
+						print("Error: Segment empty\n\r");
+					}
+					else if (status == 1) {
+						print("Process killed\n\r");
+					}
+				}
+			}
 			// Invalid command
 			else {
 				print("Unrecognized command\n\r");

@@ -25,7 +25,6 @@ void terminateProgram() {
 	interrupt(0x21, 0x05, 0, 0, 0);
 }
 
-
 int deleteSingleFile(char* filename) {
 	return interrupt(0x21, 0x07, filename, 0, 0);
 }
@@ -36,4 +35,16 @@ int writeSingleFile(char* filename, char* fileBuffer, int sectors) {
 
 void listDirectory(char* contentsBuffer) {
 	return interrupt(0x21, 0xFF, contentsBuffer, 0, 0);
+}
+
+int killProcess(int segment) {
+	return interrupt(0x21, 0x0B, segment, 0, 0);
+}
+
+void yield() {
+	interrupt(0x21, 0x09, 0, 0, 0);
+}
+
+void showProcesses() {
+	interrupt(0x21, 0, 0, 0, 0);
 }

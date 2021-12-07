@@ -25,6 +25,9 @@ int writeFile(char *fname, char *buffer, int sectors);
 void handleTimerInterrupt(int segment, int stackPointer);
 int executeProgram(char *fname);
 void kStrCopy(char *src, char *dest, int len);
+void yield();
+void showProcesses();
+int kill(int segment);
 
 int main(void) {
   	makeInterrupt21();
@@ -280,6 +283,47 @@ void terminate() {
 	releasePCB(running);
 	restoreDataSegment();
 	while(1){}
+}
+
+// Kill a process associated with a segment
+// Return 1 if success, -1 if nothing in this segment
+int kill(int segment) {
+	int newseg = 2000 + (segment * 1000);
+	int i=0;
+	for (i=0; i<8; i++) {
+		setKernelDataSegment();
+		if (pcbPool[i].segment == newseg) {
+			releaseMemorySegment(newseg);
+			releasePCB(&pcbPool[i]);
+			return 1;
+		}
+		restoreDataSegment();
+	}
+	return -1;	
+}
+
+// Show the processes currently running
+void showProcesses() {
+	int i=0;
+	for (i=0; i<8; i++) {
+		setKernelDataSegment();
+		if (pcbPool[i].state == 2) {
+			interrupt(0x21, 0x00, pcbPool[i].name, 0, 0);
+			interrupt(0x21, 0x00, "\n\r", 0, 0);
+			interrupt(0x21, 0x00, (pcbPool[i].segment - 2000)/1000, 0, 0);
+			interrupt(0x21, 0x00, "\n\r", 0, 0);		
+		}
+		interrupt(0x21, 0x00, running->name, 0, 0);
+		interrupt(0x21, 0x00, "\n\r", 0, 0);
+		interrupt(0x21, 0x00, (running->segment - 2000)/1000, 0, 0);	
+		interrupt(0x21, 0x00, "\n\r", 0, 0);
+		restoreDataSegment();
+	}
+}
+
+// Yield the rest of your time!
+void yield() {
+	interrupt(0x08, 0, 0, 0, 0);
 }
 
 /* kStrCopy(char *src, char *dest, int len) copy at most
@@ -572,8 +616,18 @@ int handleInterrupt21(int ax, int bx, int cx, int dx) {
 	else if (ax == 0x08) {
 		returnValue = writeFile(bx, cx, dx);
 	}
-	else if (ax = 0xff) {
+	else if (ax == 0xff) {
 		directoryContents(bx);
 	}
+	else if (ax == 0x0A) {
+		showProcesses();
+	}
+	else if (ax == 0x0B) {
+		returnValue = kill(bx);
+	}
+	else if (ax == 0x09) {
+		yield();
+	}
+	
 	return returnValue;
 }

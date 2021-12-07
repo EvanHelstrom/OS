@@ -32,3 +32,14 @@ int writeSingleFile(char* filename, char* fileBuffer, int sectors);
 // System call for retrieving the contents of the disk. contentsBuffer should
 // be a buffer of at least 127 characters.
 void listDirectory(char* contentsBuffer);
+
+// System call for killing a process at a specified segment
+// Return -1 if failure, 1 if success
+int killProcess(int segment);
+
+// System call for Yielding time
+void yield();
+
+// Lists currently running processes
+void showProcesses();
+
