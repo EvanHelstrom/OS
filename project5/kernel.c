@@ -24,7 +24,7 @@ int writeFile(char *fname, char *buffer, int sectors);
 // P5 functions
 void handleTimerInterrupt(int segment, int stackPointer);
 int executeProgram(char *fname);
-
+void kStrCopy(char *src, char *dest, int len);
 
 int main(void) {
   	makeInterrupt21();
@@ -238,21 +238,20 @@ int executeProgram(char* filename) {
 	int sectorsLoaded = 0;
 	int bytesLoaded = 0;
 	int segment = 0;
-	int i = 0;
-	struct PCB *pcbPointer = getFreePCB();
-	int freeSegment = getFreeMemorySegment();
+	struct PCB *pcbPointer;
+	int freeSegment;
+	setKernelDataSegment();
+	pcbPointer = getFreePCB();
+	freeSegment = getFreeMemorySegment();
 	if (freeSegment == -1) {
 		return -2;
 	}
 	segment = 2000 + (freeSegment * 1000);
 	pcbPointer->stackPointer = 0xFF00;
 	pcbPointer->segment = segment;
-	for (i=0; i<6; i++) {
-		pcbPointer->name[i] = filename[i];
-	}
-	
 	addToReady(pcbPointer);
-	
+	restoreDataSegment();
+	kStrCopy(filename, pcbPointer->name, 6);
 	// Read the program (file) to be executed
 	sectorsRead = readFile(filename, fileBuffer);
 
@@ -275,8 +274,28 @@ int executeProgram(char* filename) {
 
 // Terminate a program and execute the shell again.
 void terminate() {
-	resetSegments();
-	executeProgram("shell", 0x2000);
+	setKernelDataSegment();
+	releaseMemorySegment(running->segment);
+	running->state = 0;
+	releasePCB(running);
+	restoreDataSegment();
+	while(1){}
+}
+
+/* kStrCopy(char *src, char *dest, int len) copy at most
+* len characters from src which is addressed relative to
+* the current data segment into dest,
+* which is addressed relative to the kernel's data segment
+* (0x1000).
+*/
+void kStrCopy(char *src, char *dest, int len) {
+	int i=0;
+	for (i=0; i < len; i++) {
+		putInMemory(0x1000, dest+i, src[i]);
+		if (src[i] == 0x00) {
+	 		return;
+		}
+	}
 }
 
 /** Write to the specified disk sector the data buffer. Will read-overrun buffer if buffer is

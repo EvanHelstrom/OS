@@ -2,6 +2,7 @@
 // Brian Law
 
 void main() {
+	enableInterrupts();
 	while (1) {
 		char command[256];
 		char fileBuffer[13312];

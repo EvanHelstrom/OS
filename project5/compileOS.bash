@@ -41,5 +41,8 @@ bcc -ansi -c -o uprog2.o uprog2.c
 ld86 -o uprog2 -d uprog2.o lib.o userlib.o
 ./loadFile uprog2
 
+bcc -ansi -c -o uprog3.o uprog3.c
+ld86 -o uprog3 -d uprog3.o lib.o userlib.o
+./loadFile uprog3
 
 
